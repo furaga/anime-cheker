@@ -2,4 +2,4 @@
 cd `dirname $0`
 cd src
 ./run.sh ../mylist.json && \
-start ./output/diff.json
+start ./output/updates.json
