@@ -72,39 +72,30 @@ def scrape_niconico_anime(path)
     return items
 end
 
-def scrape_narou(path, datas)
+def scrape_narou(path)
+    items = []
+
     charset = 'utf-8'
     html = File.open(path) do |f| f.read end
     doc = Nokogiri::HTML.parse(html, nil, charset)
 
-    tables = doc.css('.favnovel')
-    tables.each do |tbl|
-        data = {}
-        tbl.css('.title2 a').each do |a|
-            data['title'] = a.inner_html.strip
+    sublist = doc.css('.novel_sublist2')
+    sublist.each do |subtitle|
+        item = {}
+        subtitle.css('a').each do |a|
+            item['url'] = "http://ncode.syosetu.com" + a.attribute("href").value.strip
+            item['title'] = a.inner_html.strip
         end
-        tbl.css('.info2 p span a').each do |a|
-            data['url'] = a.attribute('href').value
-            data['title'] = data['title'] + " " + a.inner_html.strip
+        subtitle.css('long_update').each do |dt|
+            item['timestamp'] = dt.inner_html.strip
         end
-
-        tbl.css('.info2 p').each do |p|
-            text = p.inner_html
-            starts = text.index('更新日')
-            ends = text.index('<span', starts)
-            if starts >= 0 && ends > starts then
-                data['date'] = p.inner_html[starts, ends - starts].strip
-                break
-            end
-        end
-
-        data['banner_url'] = "https://static.syosetu.com/view/images/user_logo.gif?mpc5l6"
-        data['official_site'] = "小説家になろう"
-
-        if data.key?('title') then
-            datas.push(data)
-        end 
+        items << item
     end
+
+    if items.length >= 10 then
+        return items.slice(-10..-1)
+    end
+    return items
 end
 
 files = Dir.glob('./data/html/*.html')
@@ -112,12 +103,16 @@ all_items = []
 files.each do |f|
     if f.include?("ch.nicovideo.jp") then
         # ニコニコアニメチャンネルページ
+        puts "scrape (niconico): " + f
         items = scrape_niconico_anime(f)
         all_items.concat(items)
     end
     if f.include?("ncode.syosetu.com") then
         # 小説家になろう小説一覧ページ
-   #     items = scrape_narou(f)
-    #    all_items.concat(items)
+        puts "scrape (narou): " + f
+        items = scrape_narou(f)
+        all_items.concat(items)
     end
 end
+
+puts all_items
