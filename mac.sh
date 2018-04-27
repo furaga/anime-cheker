@@ -1,4 +1,5 @@
 #!/bin/bash
 cd `dirname $0`
-./run.sh && \
+cd src
+run.sh && \
 open ./output/diff.json
