@@ -33,7 +33,7 @@ def scrape_niconico_anime(path)
     html = File.open(path) do |f| f.read end
     doc = Nokogiri::HTML.parse(html, nil, charset)
 
-    divs = doc.css('.g-video.g-item-odd.from_video')
+    divs = doc.css('.g-video.from_video')
     divs.each do |div|
         item = {}
 
@@ -47,6 +47,7 @@ def scrape_niconico_anime(path)
         title = lnk.attribute('title').value.strip
         item["url"] = url
         item["title"] = title
+        item["root"] = path
 
         imgs = lnk.css('.g-thumbnail-image')
         if imgs.length <= 0 then
@@ -82,11 +83,12 @@ def scrape_narou(path)
     sublist = doc.css('.novel_sublist2')
     sublist.each do |subtitle|
         item = {}
+        item["root"] = path
         subtitle.css('a').each do |a|
             item['url'] = "http://ncode.syosetu.com" + a.attribute("href").value.strip
             item['title'] = a.inner_html.strip
         end
-        subtitle.css('long_update').each do |dt|
+        subtitle.css('.long_update').each do |dt|
             item['timestamp'] = dt.inner_html.strip
         end
         items << item
@@ -103,16 +105,16 @@ all_items = []
 files.each do |f|
     if f.include?("ch.nicovideo.jp") then
         # ニコニコアニメチャンネルページ
-        puts "scrape (niconico): " + f
+        STDERR.puts "scrape (niconico): " + f
         items = scrape_niconico_anime(f)
         all_items.concat(items)
     end
     if f.include?("ncode.syosetu.com") then
         # 小説家になろう小説一覧ページ
-        puts "scrape (narou): " + f
+        STDERR.puts "scrape (narou): " + f
         items = scrape_narou(f)
         all_items.concat(items)
     end
 end
 
-puts all_items
+JSON.dump(all_items, STDOUT)
