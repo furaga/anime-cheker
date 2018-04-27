@@ -22,7 +22,7 @@ end
 
 def download_thumbnail(url)
     publicImageURL = "/img/" + SecureRandom.hex(8) + ".png"
-    download(url,  "./data" + publicImageURL)
+    download(url,  "./crawled" + publicImageURL)
     return publicImageURL
 end
 
@@ -100,7 +100,7 @@ def scrape_narou(path)
     return items
 end
 
-files = Dir.glob('./data/html/*.html')
+files = Dir.glob('./crawled/html/*.html')
 all_items = []
 files.each do |f|
     if f.include?("ch.nicovideo.jp") then
