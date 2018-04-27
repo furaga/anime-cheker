@@ -1,6 +1,6 @@
 #!/bin/bash
 cd `dirname $0`
-./run_crawl.sh && \
+./run_crawl.sh $1 && \
 echo '---------' && \
 ./run_scrape.sh && \
 echo '---------' && \
