@@ -67,7 +67,7 @@ end
 
 json_data.each do |d|
     uri = URI.parse(d["url"])
-    save_path = uri.path.gsub(/^\//, '')
+    save_path = uri.host + "-" + uri.path.gsub(/^\//, '')
     save_path = save_path.gsub("/", '-')
     save_path = "./data/html/" + save_path + ".html"
     download(d["url"], save_path)
