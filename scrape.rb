@@ -3,6 +3,11 @@ require 'nokogiri'
 require "json"
 require 'securerandom'
 require "fileutils"
+require 'optparse'
+
+params = ARGV.getopts("d", "download")
+$do_download_image = params["d"]
+
 
 def download(url, savepath)
   dirname = File.dirname(savepath)
@@ -15,42 +20,59 @@ def download(url, savepath)
   end
 end
 
-def downloadAsPublicImage(url)
+def download_thumbnail(url)
     publicImageURL = "/img/" + SecureRandom.hex(8) + ".png"
     download(url,  "./data" + publicImageURL)
     return publicImageURL
 end
 
-def scrape_niconico_anime(path, datas)
+def scrape_niconico_anime(path)
+    items = []
+
     charset = 'utf-8'
     html = File.open(path) do |f| f.read end
     doc = Nokogiri::HTML.parse(html, nil, charset)
 
-    lis = doc.css('.video.cfix.selected')
-    lis.each do |li|
-        data = {}
-        inputs = li.css('input')
-        inputs.each do |input|
-            name = input.attribute('name').value
-            value = input.attribute('value').value
-            if name == "thumbnail_url" then
-                data["thumbnail_url_raw"] = value
-                newURL = downloadAsPublicImage(data["thumbnail_url_raw"])
-                data["thumbnail_url"] = newURL
-            else
-                data[name] = value
-            end
+    divs = doc.css('.g-video.g-item-odd.from_video')
+    divs.each do |div|
+        item = {}
+
+        links = div.css('.thumb_anchor.g-video-link')
+        if links.length <= 0 then
+            STDERR.puts ".thumb_anchor.g-video-link not found: " + url + "(" + title + ")"
         end
-        data["url"] = "http://www.nicovideo.jp/watch/" + li.attribute('id').value.split('_')[2]
-        data['official_site'] = "ニコニコ動画"
-        data['date'] = data['start_time'] 
-        if data.key?('title') then
-            datas.push(data)
-        end 
+
+        lnk = links[0]
+        url = lnk.attribute('href').value.strip
+        title = lnk.attribute('title').value.strip
+        item["url"] = url
+        item["title"] = title
+
+        imgs = lnk.css('.g-thumbnail-image')
+        if imgs.length <= 0 then
+            STDERR.puts "img not found: " + url + "(" + title + ")"
+        end
+
+        img = imgs[0]
+        url_attr = img.attribute("src")
+        if url_attr.nil? then
+            url_attr = img.attribute("data-original")
+        end
+        thumbnail_url = url_attr.value.strip
+        save_filepath = ""
+        if $do_download_image then
+            save_filepath = download_thumbnail(thumbnail_url)
+        end
+        item["thumbnail_rawurl"] = thumbnail_url
+        item["thumbnail_url"] = save_filepath
+
+        items << item
     end
+
+    return items
 end
 
-def scrape_syosetu(path, datas)
+def scrape_narou(path, datas)
     charset = 'utf-8'
     html = File.open(path) do |f| f.read end
     doc = Nokogiri::HTML.parse(html, nil, charset)
@@ -85,67 +107,17 @@ def scrape_syosetu(path, datas)
     end
 end
 
-def scrape_comic_walker(path, datas)
-    charset = 'utf-8'
-    html = File.open(path) do |f| f.read end
-    doc = Nokogiri::HTML.parse(html, nil, charset)
-    aTags = doc.css('.tileList a')
-    aTags.each do |a|
-        data = {}
-        data["url"] = "https://comic-walker.com" + a.attribute("href").value
-        data["title"] = a.css('h2 span')[0].inner_html.strip
-        img = a.css('.pic img')[0]
-        if img then
-            data["thumbnail_url_raw"] = img.attribute("src").value
-            newURL = downloadAsPublicImage(data["thumbnail_url_raw"])
-            data["thumbnail_url"] = newURL
-        end
-        data['official_site'] = "Comic Walker"
-        if data.key?('title') then
-            datas.push(data)
-        end 
+files = Dir.glob('./data/html/*.html')
+all_items = []
+files.each do |f|
+    if f.include?("ch.nicovideo.jp") then
+        # ニコニコアニメチャンネルページ
+        items = scrape_niconico_anime(f)
+        all_items.concat(items)
     end
-
-end
-
-def scrape_youtube_playlist(path, datas)
-    charset = 'utf-8'
-    html = File.open(path) do |f| f.read end
-    doc = Nokogiri::HTML.parse(html, nil, charset)
-
-    trs = doc.css('.pl-video.yt-uix-tile')
-    trs.each do |tr|
-        data = {}
-        data["url"] = "https://www.youtube.com/watch?v=" + tr.attribute("data-video-id").value
-        data["title"] = tr.attribute("data-title").value
-
-        img = tr.css('img')[0]
-        if img then
-            data["thumbnail_url"] = img.attribute("data-thumb").value
-        end
-        if data.key?('title') then
-            datas.push(data)
-        end 
+    if f.include?("ncode.syosetu.com") then
+        # 小説家になろう小説一覧ページ
+   #     items = scrape_narou(f)
+    #    all_items.concat(items)
     end
-
 end
-
-def checkArgv(flg)
-    return ARGV.include?('--all') || ARGV.include?(flg)
-end
-
-datas = []
-if checkArgv('--video') then
-  scrape_niconico_anime("./data/html/niconico/niconico_anime.html", datas)
-  scrape_youtube_playlist("./data/html/youtube/lovelive-sunshine2.html", datas)
-end
-
-if checkArgv('--comic') then
-    scrape_comic_walker("./data/html/comic-walker/contents-list.html", datas)
-end
-
-if checkArgv('--books') then
-    scrape_syosetu("./data/html/syosetu/isnoticelist.html", datas)
-end
-
-puts "[" + datas.map{|d| JSON.pretty_generate(d) }.join(',') + "]"
