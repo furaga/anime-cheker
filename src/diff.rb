@@ -51,4 +51,5 @@ for i in (jsons.length - 2).downto(0) do
 end
 
 STDERR.puts "%d items found" % all_items.length
-JSON.dump(all_items, STDOUT)
+print JSON.pretty_generate(all_items)
+
