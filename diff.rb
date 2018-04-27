@@ -43,4 +43,5 @@ dst.each do |dst_item|
     end
 end
 
+STDERR.puts "%d items found" % all_items.length
 JSON.dump(all_items, STDOUT)
