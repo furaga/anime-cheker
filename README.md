@@ -15,11 +15,17 @@
 
 Windows:
 ```
+cd ./src
+bundle install
+cd ../
 ./win.sh
 ```
 
 Mac:
 ```
+cd ./src
+bundle install
+cd ../
 ./mac.sh
 ```
 
