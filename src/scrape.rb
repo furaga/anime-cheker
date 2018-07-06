@@ -73,6 +73,54 @@ def scrape_niconico_anime(path)
     return items
 end
 
+def scrape_d_anime_store(path)
+    items = []
+
+    charset = 'utf-8'
+    html = File.open(path) do |f| f.read end
+    doc = Nokogiri::HTML.parse(html, nil, charset)
+
+    lis = doc.css('.item')
+    lis.each do |li|
+        item = {}
+
+        # title
+        selector = '.item_right > .title > a'        
+        links = li.css(selector)
+        if links.length <= 0 then
+            STDERR.puts selector + url
+        end
+
+        lnk = links[0]
+        item["url"] = lnk.attribute('href').value.strip
+        item["title"] = lnk.attribute('title').value.strip
+        item["root"] = path
+
+        # thumbnail
+        selector = '.item_left > .thumb_video > img'        
+        imgs = li.css(selector)
+        if imgs.length <= 0 then
+            STDERR.puts ".item_left.thumb_video not found: " + url
+        end
+
+        img = imgs[0]
+        url_attr = img.attribute("src")
+        if url_attr.nil? then
+            url_attr = img.attribute("data-original")
+        end
+        thumbnail_url = url_attr.value.strip
+        save_filepath = ""
+        if $do_download_image then
+            save_filepath = download_thumbnail(thumbnail_url)
+        end
+        item["thumbnail_rawurl"] = thumbnail_url
+        item["thumbnail_url"] = save_filepath
+
+        items << item
+    end
+
+    return items
+end
 def scrape_narou(path)
     items = []
 
@@ -103,13 +151,17 @@ end
 files = Dir.glob('./crawled/html/*.html')
 all_items = []
 files.each do |f|
-    if f.include?("ch.nicovideo.jp") then
+    if f.include?("ch.nicovideo.jp-search-") then
+        # dアニメストア
+        STDERR.puts "scrape (danime): " + f
+        items = scrape_d_anime_store(f)
+        all_items.concat(items)
+    elsif f.include?("ch.nicovideo.jp") then
         # ニコニコアニメチャンネルページ
         STDERR.puts "scrape (niconico): " + f
         items = scrape_niconico_anime(f)
         all_items.concat(items)
-    end
-    if f.include?("ncode.syosetu.com") then
+    elsif f.include?("ncode.syosetu.com") then
         # 小説家になろう小説一覧ページ
         STDERR.puts "scrape (narou): " + f
         items = scrape_narou(f)
